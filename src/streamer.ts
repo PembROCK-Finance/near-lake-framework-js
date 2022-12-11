@@ -4,7 +4,8 @@ import { LakeConfig, BlockHeight, StreamerMessage } from "./types";
 import { sleep } from "./utils";
 
 async function* batchStream(
-  config: LakeConfig
+  config: LakeConfig,
+  credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<Promise<StreamerMessage>[]> {
   const s3Client = new S3Client({ region: config.s3RegionName, endpoint: config.s3Endpoint, forcePathStyle: config.s3ForcePathStyle });
 
@@ -51,16 +52,18 @@ async function* fetchAhead<T>(seq: AsyncIterable<T>, stepsAhead = 10): AsyncIter
 }
 
 export async function* stream(
-  config: LakeConfig
+  config: LakeConfig,
+  credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<StreamerMessage> {
-  const s3Client = new S3Client({ region: config.s3RegionName });
+  
+  const s3Client = new S3Client({ region: config.s3RegionName, credentials });
 
   let lastProcessedBlockHash: string;
   let startBlockHeight = config.startBlockHeight;
   
   while (true) {
     try {
-      for await (let promises of fetchAhead(batchStream({ ...config, startBlockHeight }))) {
+      for await (let promises of fetchAhead(batchStream({ ...config, startBlockHeight }, credentials))) {
         for (let promise of promises) {
           const streamerMessage = await promise;
           // check if we have `lastProcessedBlockHash` (might be not set only on start)
@@ -91,10 +94,11 @@ export async function* stream(
 
 export async function startStream(
   config: LakeConfig,
-  onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>
+  onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>,
+  credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-  for await (let streamerMessage of stream(config)) {
+  for await (let streamerMessage of stream(config, credentials)) {
       // `queue` here is used to achieve throttling as streamer would run ahead without a stop
       // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
       // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
