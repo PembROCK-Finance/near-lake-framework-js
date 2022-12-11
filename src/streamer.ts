@@ -7,7 +7,7 @@ async function* batchStream(
   config: LakeConfig,
   credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<Promise<StreamerMessage>[]> {
-  const s3Client = new S3Client({ region: config.s3RegionName, endpoint: config.s3Endpoint, forcePathStyle: config.s3ForcePathStyle });
+  const s3Client = new S3Client({ region: config.s3RegionName, endpoint: config.s3Endpoint, forcePathStyle: config.s3ForcePathStyle, credentials });
 
   let startBlockHeight = config.startBlockHeight;
 
