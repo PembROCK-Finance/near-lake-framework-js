@@ -74,8 +74,8 @@ async function fetchBlock(
       const block: Block = await parseBody<Block>(data.Body as Readable);
       return block;
     } catch (err) {
-      console.error(
-        `Failed to fetch ${blockHeight}/block.json. Retrying immediately`,
+      throw new Error(
+        `Failed to fetch ${blockHeight}/block.json. \n` +
         err
       );
     }
@@ -116,10 +116,9 @@ async function fetchSingleShard(
     const shard: Shard = await parseBody<Shard>(data.Body as Readable);
     return shard;
   } catch (err) {
-    console.error(
-      `Failed to fetch ${blockHeight}/shard_${shardId}.json. Retrying immediately`,
+    throw new Error(
+      `Failed to fetch ${blockHeight}/shard_${shardId}.json.\n`+
       err
     );
-    return await fetchSingleShard(client, bucketName, blockHeight, shardId);
   }
 }
