@@ -86,8 +86,7 @@ export async function* stream(
       }
     } catch (e) {
       // TODO: Should there be limit for retries?
-      console.log('Retrying on error when fetching blocks', e, 'Refetching the data from S3 in 200ms');
-      await sleep(200);
+      throw new Error('Retrying on error when fetching blocks\n' + e);
     }
   }
 }
