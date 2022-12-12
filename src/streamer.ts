@@ -22,8 +22,8 @@ async function* batchStream(
         config.blocksPreloadPoolSize
       );
     } catch (err) {
-      console.error("Failed to list blocks. Retrying.", err);
-      continue;
+      // console.error("Failed to list blocks. Retrying.", err);
+      throw Error("Failed to list blocks.");
     }
 
     if (blockHeights.length === 0) {
