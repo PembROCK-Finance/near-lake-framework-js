@@ -98,15 +98,19 @@ export async function startStream(
   credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-  for await (let streamerMessage of stream(config, credentials)) {
-      // `queue` here is used to achieve throttling as streamer would run ahead without a stop
-      // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
-      // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
-      // is being processed, so even with a queue size of 1 there is already a benefit.
-      // TODO: Reliable error propagation for onStreamerMessageReceived?
-      queue.push(onStreamerMessageReceived(streamerMessage));
-      if (queue.length > 10) {
-        await queue.shift();
-      }
+  try {
+    for await (let streamerMessage of stream(config, credentials)) {
+        // `queue` here is used to achieve throttling as streamer would run ahead without a stop
+        // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
+        // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
+        // is being processed, so even with a queue size of 1 there is already a benefit.
+        // TODO: Reliable error propagation for onStreamerMessageReceived?
+        queue.push(onStreamerMessageReceived(streamerMessage));
+        if (queue.length > 10) {
+          await queue.shift();
+        }
+    }
+  } catch (error) {
+    throw new NoNewBlocksError("Some error");
   }
 }
