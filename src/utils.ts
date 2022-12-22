@@ -56,6 +56,8 @@ function renameUnderscoreFieldsToCamelCase(value) {
 
 export class NoNewBlocksError extends Error {  
   constructor (message) {
-    super(message)
+    super(message);
+    Error.captureStackTrace(this, NoNewBlocksError);
   }
+
 }
