@@ -84,6 +84,12 @@ async function fetchBlock(
       }
       retryCount++;
       await sleep(200);
+      if(retryCount > 5) {
+        throw new Error(
+          `Failed to fetch ${blockHeight}/block.json. \n` +
+          err
+        );
+      }
     }
   }
 }
@@ -131,6 +137,12 @@ async function fetchSingleShard(
         );
       }
       retryCount++;
+      if(retryCount > 5) {
+        throw new Error(
+          `Failed to fetch ${blockHeight}/shard_${shardId}.json.\n`+
+          err
+        );
+      }
       await sleep(200);
     }
   }

@@ -32,6 +32,7 @@ async function* batchStream(
         throw err;
       }
 
+      throw Error("Failed to list blocks.");
       console.error("Failed to list blocks. Retrying.", err);
       continue;
     }
@@ -62,9 +63,11 @@ async function* fetchAhead<T>(seq: AsyncIterable<T>, stepsAhead = 10): AsyncIter
 }
 
 export async function* stream(
-  config: LakeConfig
+  config: LakeConfig,
+  credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<StreamerMessage> {
-  const s3Client = new S3Client({ region: config.s3RegionName });
+  
+  const s3Client = new S3Client({ region: config.s3RegionName, credentials });
 
   let lastProcessedBlockHash: string;
   let startBlockHeight = config.startBlockHeight;
@@ -98,26 +101,26 @@ export async function* stream(
       }
 
       // TODO: Should there be limit for retries?
-      console.log('Retrying on error when fetching blocks', e, 'Refetching the data from S3 in 200ms');
-      await sleep(200);
+      throw new Error('Retrying on error when fetching blocks\n' + e);
     }
   }
 }
 
 export async function startStream(
   config: LakeConfig,
-  onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>
+  onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>,
+  credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-  for await (let streamerMessage of stream(config)) {
-      // `queue` here is used to achieve throttling as streamer would run ahead without a stop
-      // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
-      // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
-      // is being processed, so even with a queue size of 1 there is already a benefit.
-      // TODO: Reliable error propagation for onStreamerMessageReceived?
-      queue.push(onStreamerMessageReceived(streamerMessage));
-      if (queue.length > 10) {
-        await queue.shift();
-      }
-  }
+    for await (let streamerMessage of stream(config, credentials)) {
+        // `queue` here is used to achieve throttling as streamer would run ahead without a stop
+        // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
+        // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
+        // is being processed, so even with a queue size of 1 there is already a benefit.
+        // TODO: Reliable error propagation for onStreamerMessageReceived?
+        queue.push(onStreamerMessageReceived(streamerMessage));
+        if (queue.length > 10) {
+          await queue.shift();
+        }
+    }
 }
