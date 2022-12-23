@@ -28,7 +28,7 @@ async function* batchStream(
     }
 
     if (blockHeights.length === 0) {
-      yield Promise.reject(new NoNewBlocksError("No new blocks"));
+      throw new NoNewBlocksError("No new blocks");
       // Throttling when there are no new blocks
       // const NO_NEW_BLOCKS_THROTTLE_MS = 700;
       // await sleep(NO_NEW_BLOCKS_THROTTLE_MS);
