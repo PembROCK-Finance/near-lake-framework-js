@@ -52,9 +52,3 @@ function renameUnderscoreFieldsToCamelCase(value) {
   }
   return value;
 }
-
-export class NoNewBlocksError extends Error {  
-  constructor (message) {
-    super(message);
-  }
-}

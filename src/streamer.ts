@@ -1,14 +1,19 @@
 import { S3Client } from "@aws-sdk/client-s3";
-import { NoNewBlocksError } from ".";
 import { listBlocks, fetchStreamerMessage } from "./s3fetchers";
 import { LakeConfig, BlockHeight, StreamerMessage } from "./types";
 import { sleep } from "./utils";
 
+const FATAL_ERRORS = ["CredentialsProviderError"];
+
 async function* batchStream(
-  config: LakeConfig,
-  credentials: {accessKeyId: string; secretAccessKey: string},
+  config: LakeConfig
 ): AsyncIterableIterator<Promise<StreamerMessage>[]> {
-  const s3Client = new S3Client({ region: config.s3RegionName, endpoint: config.s3Endpoint, forcePathStyle: config.s3ForcePathStyle, credentials });
+  const s3Client = new S3Client({
+    credentials: config.credentials,
+    region: config.s3RegionName,
+    endpoint: config.s3Endpoint,
+    forcePathStyle: config.s3ForcePathStyle
+  });
 
   let startBlockHeight = config.startBlockHeight;
 
@@ -23,13 +28,16 @@ async function* batchStream(
         config.blocksPreloadPoolSize
       );
     } catch (err) {
+      if (FATAL_ERRORS.includes(err.name)) {
+        throw err;
+      }
+
+      throw Error("Failed to list blocks.");
       console.error("Failed to list blocks. Retrying.", err);
       continue;
-      // throw Error("Failed to list blocks.");
     }
 
     if (blockHeights.length === 0) {
-      // throw new NoNewBlocksError("No new blocks");
       // Throttling when there are no new blocks
       const NO_NEW_BLOCKS_THROTTLE_MS = 700;
       await sleep(NO_NEW_BLOCKS_THROTTLE_MS);
@@ -56,17 +64,16 @@ async function* fetchAhead<T>(seq: AsyncIterable<T>, stepsAhead = 10): AsyncIter
 
 export async function* stream(
   config: LakeConfig,
-  credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<StreamerMessage> {
   
-  const s3Client = new S3Client({ region: config.s3RegionName, credentials });
+  const s3Client = new S3Client({ region: config.s3RegionName, credentials: config.credentials });
 
   let lastProcessedBlockHash: string;
   let startBlockHeight = config.startBlockHeight;
-  
+
   while (true) {
     try {
-      for await (let promises of fetchAhead(batchStream({ ...config, startBlockHeight }, credentials))) {
+      for await (let promises of fetchAhead(batchStream({ ...config, startBlockHeight }))) {
         for (let promise of promises) {
           const streamerMessage = await promise;
           // check if we have `lastProcessedBlockHash` (might be not set only on start)
@@ -88,6 +95,10 @@ export async function* stream(
         }
       }
     } catch (e) {
+      if (FATAL_ERRORS.includes(e.name)) {
+        throw e;
+      }
+
       // TODO: Should there be limit for retries?
       throw new Error('Retrying on error when fetching blocks\n' + e);
     }
@@ -97,10 +108,9 @@ export async function* stream(
 export async function startStream(
   config: LakeConfig,
   onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>,
-  credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-    for await (let streamerMessage of stream(config, credentials)) {
+    for await (let streamerMessage of stream(config)) {
         // `queue` here is used to achieve throttling as streamer would run ahead without a stop
         // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
         // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
