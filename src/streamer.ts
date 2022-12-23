@@ -64,10 +64,9 @@ async function* fetchAhead<T>(seq: AsyncIterable<T>, stepsAhead = 10): AsyncIter
 
 export async function* stream(
   config: LakeConfig,
-  credentials: {accessKeyId: string; secretAccessKey: string},
 ): AsyncIterableIterator<StreamerMessage> {
   
-  const s3Client = new S3Client({ region: config.s3RegionName, credentials });
+  const s3Client = new S3Client({ region: config.s3RegionName, credentials: config.credentials });
 
   let lastProcessedBlockHash: string;
   let startBlockHeight = config.startBlockHeight;
@@ -109,10 +108,9 @@ export async function* stream(
 export async function startStream(
   config: LakeConfig,
   onStreamerMessageReceived: (data: StreamerMessage) => Promise<void>,
-  credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-    for await (let streamerMessage of stream(config, credentials)) {
+    for await (let streamerMessage of stream(config)) {
         // `queue` here is used to achieve throttling as streamer would run ahead without a stop
         // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
         // This implementation has a pipeline that fetches the data from S3 while `onStreamerMessageReceived`
