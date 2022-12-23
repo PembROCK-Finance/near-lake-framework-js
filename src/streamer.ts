@@ -24,6 +24,7 @@ async function* batchStream(
       );
     } catch (err) {
       console.error("Failed to list blocks. Retrying.", err);
+      continue;
       // throw Error("Failed to list blocks.");
     }
 
