@@ -1,7 +1,8 @@
 import { S3Client } from "@aws-sdk/client-s3";
+import { NoNewBlocksError } from ".";
 import { listBlocks, fetchStreamerMessage } from "./s3fetchers";
 import { LakeConfig, BlockHeight, StreamerMessage } from "./types";
-import { NoNewBlocksError, sleep } from "./utils";
+import { sleep } from "./utils";
 
 async function* batchStream(
   config: LakeConfig,
@@ -27,7 +28,7 @@ async function* batchStream(
     }
 
     if (blockHeights.length === 0) {
-      throw new NoNewBlocksError("No new blocks");
+      throw Promise.reject(new NoNewBlocksError("No new blocks"));
       // Throttling when there are no new blocks
       // const NO_NEW_BLOCKS_THROTTLE_MS = 700;
       // await sleep(NO_NEW_BLOCKS_THROTTLE_MS);
@@ -98,7 +99,6 @@ export async function startStream(
   credentials: {accessKeyId: string; secretAccessKey: string},
 ) {
   let queue: Promise<void>[] = [];
-  try {
     for await (let streamerMessage of stream(config, credentials)) {
         // `queue` here is used to achieve throttling as streamer would run ahead without a stop
         // and if we start from genesis it will spawn millions of `onStreamerMessageReceived` callbacks.
@@ -110,7 +110,4 @@ export async function startStream(
           await queue.shift();
         }
     }
-  } catch (error) {
-    throw new NoNewBlocksError("Some error");
-  }
 }
